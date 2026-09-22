@@ -1,0 +1,41 @@
+.fast-review-badge {
+  position: absolute;
+  z-index: 2147483000;
+  top: 10px;
+  right: 10px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  color: #fff;
+  background: #59636f;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 18%);
+  font: 700 13px/1.2 system-ui, sans-serif;
+  pointer-events: auto;
+}
+
+.fast-review-badge.is-high { background: #087f5b; }
+.fast-review-badge.is-mid { background: #d97706; }
+.fast-review-badge.is-low { background: #c92a2a; }
+.fast-review-badge.is-loading { background: #59636f; }
+.fast-review-badge.is-error { background: #6b7280; }
+
+.fast-review-panel {
+  position: fixed;
+  z-index: 2147483647;
+  right: 20px;
+  bottom: 20px;
+  display: grid;
+  width: 300px;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid #d7dce1;
+  border-radius: 12px;
+  color: #1f2937;
+  background: #fff;
+  box-shadow: 0 8px 30px rgb(0 0 0 / 18%);
+  font: 14px/1.4 system-ui, sans-serif;
+}
+
+.fast-review-panel.is-error { border-color: #ef4444; }
+.fast-review-panel.is-done { border-color: #10b981; }
+.fast-review-panel progress { width: 100%; }
+.fast-review-panel button { justify-self: end; cursor: pointer; }

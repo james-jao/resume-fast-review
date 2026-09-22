@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "104 人才快速媒合",
+  "version": "0.1.0",
+  "description": "使用 TypeSafe Jev 將人才詳細資料與自然語言需求比對，並在 104 人才列表顯示契合度。",
+  "permissions": ["activeTab", "storage"],
+  "host_permissions": [
+    "https://vip.104.com.tw/*",
+    "https://api.typesafe.ai/*"
+  ],
+  "background": {
+    "service_worker": "service-worker.js"
+  },
+  "action": {
+    "default_title": "104 人才快速媒合",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://vip.104.com.tw/*"],
+      "js": ["lib.js", "content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}

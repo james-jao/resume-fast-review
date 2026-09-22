@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>104 人才快速媒合</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main>
+      <h1>104 人才快速媒合</h1>
+      <label for="target">想找的人才</label>
+      <textarea id="target" rows="7" placeholder="例如：熟悉 React 與 TypeScript、3 年以上前端經驗，重視產品思維；有帶人經驗加分。"></textarea>
+
+      <label for="limit">本次評估人數</label>
+      <input id="limit" type="number" min="1" max="50" value="20">
+
+      <details>
+        <summary>TypeSafe API 設定</summary>
+        <label for="api-key">API key</label>
+        <input id="api-key" type="password" autocomplete="off" placeholder="貼上 TypeSafe API key">
+        <p>只儲存在這台瀏覽器的擴充功能空間，評估時直接傳給 TypeSafe。</p>
+      </details>
+
+      <button id="start" type="button">儲存並評估目前列表</button>
+      <p id="status" role="status"></p>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>
