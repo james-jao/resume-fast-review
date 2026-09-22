@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "104 人才快速媒合",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "使用 TypeSafe Jev 將人才詳細資料與自然語言需求比對，並在 104 人才列表顯示契合度。",
   "permissions": ["activeTab", "storage"],
   "host_permissions": [

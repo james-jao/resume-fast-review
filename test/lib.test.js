@@ -2,6 +2,12 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { scoreToPercent, compactText, buildEvaluationRequest, parseScoreResults } = require("../lib.js");
 
+test("辨識 104 真實 SearchResumeMaster 人才網址", () => {
+  const url = "https://vip.104.com.tw/search/SearchResumeMaster?idno=1756775867113&sn=1";
+  assert.equal(require("../lib.js").isCandidateProfileUrl(url), true);
+  assert.equal(require("../lib.js").candidateIdFromUrl(url), "1756775867113");
+});
+
 test("Jev 五級分數正確轉成百分比並限制範圍", () => {
   assert.equal(scoreToPercent(0), 0);
   assert.equal(scoreToPercent(2), 50);

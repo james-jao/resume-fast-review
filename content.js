@@ -2,7 +2,6 @@
   "use strict";
 
   const state = { running: false, stopRequested: false };
-  const PROFILE_HINT = /(?:resume|talent|candidate|profile)(?:\/|\?|$)|(?:resume|talent|candidate|profile)(?:id|no)=/i;
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.type === "START_SCORING") {
@@ -19,23 +18,18 @@
   function findCandidates(limit) {
     const seen = new Set();
     const found = [];
-    const links = [...document.querySelectorAll("a[href]")].filter((link) => {
-      try {
-        const url = new URL(link.href, location.href);
-        return url.hostname === "vip.104.com.tw" && PROFILE_HINT.test(url.pathname + url.search);
-      } catch (_error) {
-        return false;
-      }
-    });
+    const links = [...document.querySelectorAll('a[href*="SearchResumeMaster"]')]
+      .filter((link) => FastReview.isCandidateProfileUrl(link.href));
     for (const link of links) {
       if (found.length >= limit) break;
-      const card = link.closest("[class*='resume-card'], [class*='talent-card'], [class*='candidate-card'], article, li") || link.parentElement;
+      const card = link.closest('[data-qa-id="resumeCard"]');
       const text = FastReview.compactText(card?.innerText, 4000);
       if (!card || text.length < 40 || text.length > 10000) continue;
       const url = new URL(link.href, location.href).href.split("#")[0];
-      if (seen.has(url)) continue;
-      seen.add(url);
-      found.push({ id: url, url, card });
+      const candidateId = FastReview.candidateIdFromUrl(url);
+      if (!candidateId || seen.has(candidateId)) continue;
+      seen.add(candidateId);
+      found.push({ id: candidateId, url, card });
     }
     return found;
   }
@@ -88,7 +82,8 @@
   function extractProfile(html) {
     const doc = new DOMParser().parseFromString(html, "text/html");
     doc.querySelectorAll("script,style,noscript,svg,header,footer,nav").forEach((node) => node.remove());
-    const main = doc.querySelector("main, [role='main'], [class*='resume'], [class*='profile']") || doc.body;
+    const main = doc.querySelector(".msc-resume-wrapper");
+    if (!main) return { ok: false, error: "詳細頁找不到履歷主內容，未送出評估。" };
     const text = FastReview.compactText(main?.textContent || "");
     const loginSignals = (text.match(/登入|登錄|sign\s*in|login/gi) || []).length;
     if (text.length < 300) return { ok: false, error: "詳細頁內容不足，未送出評估。" };
@@ -109,13 +104,11 @@
       if (finalUrl.hostname !== "vip.104.com.tw" || /login|signin|sso/i.test(finalTarget)) {
         return { ok: false, error: "詳細頁被導向登入頁，請確認 104 登入狀態。" };
       }
-      if (!PROFILE_HINT.test(finalTarget) || normalizePath(finalUrl.pathname) !== normalizePath(parsed.pathname)) {
+      if (!FastReview.isCandidateProfileUrl(finalUrl.href)) {
         return { ok: false, error: "詳細頁被導向其他 104 頁面，未送出評估。" };
       }
-      for (const [key, value] of parsed.searchParams) {
-        if (/(?:id|no|cust|resume|talent|candidate|profile)/i.test(key) && finalUrl.searchParams.get(key) !== value) {
-          return { ok: false, error: "詳細頁的人才識別不一致，未送出評估。" };
-        }
+      if (FastReview.candidateIdFromUrl(finalUrl.href) !== FastReview.candidateIdFromUrl(parsed.href)) {
+        return { ok: false, error: "詳細頁的人才識別不一致，未送出評估。" };
       }
       const contentType = response.headers.get("content-type") || "";
       if (!contentType.includes("text/html")) return { ok: false, error: "詳細頁沒有回傳 HTML。" };
@@ -123,10 +116,6 @@
     } catch (error) {
       return { ok: false, error: `詳細頁讀取失敗：${error.message}` };
     }
-  }
-
-  function normalizePath(pathname) {
-    return pathname.replace(/\/+$/, "").toLowerCase();
   }
 
   function renderBadge(card, result) {

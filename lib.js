@@ -26,6 +26,23 @@
       .slice(0, maxLength);
   }
 
+  function isCandidateProfileUrl(value) {
+    try {
+      const url = new URL(value, "https://vip.104.com.tw/");
+      return url.protocol === "https:"
+        && url.hostname === "vip.104.com.tw"
+        && url.pathname.toLowerCase() === "/search/searchresumemaster"
+        && /^\d+$/.test(url.searchParams.get("idno") || "");
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  function candidateIdFromUrl(value) {
+    if (!isCandidateProfileUrl(value)) return null;
+    return new URL(value, "https://vip.104.com.tw/").searchParams.get("idno");
+  }
+
   function buildEvaluationRequest(target, candidates) {
     const state = {
       hiring_need: compactText(target, 4000),
@@ -66,6 +83,14 @@
     });
   }
 
-  root.FastReview = { SCORE_LEVELS, scoreToPercent, compactText, buildEvaluationRequest, parseScoreResults };
+  root.FastReview = {
+    SCORE_LEVELS,
+    scoreToPercent,
+    compactText,
+    isCandidateProfileUrl,
+    candidateIdFromUrl,
+    buildEvaluationRequest,
+    parseScoreResults
+  };
   if (typeof module !== "undefined" && module.exports) module.exports = root.FastReview;
 })(typeof globalThis !== "undefined" ? globalThis : this);
