@@ -1,5 +1,7 @@
 importScripts("lib.js");
 
+let scoreCacheWriteQueue = Promise.resolve();
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "SCORE_CANDIDATES") {
     scoreCandidates(message.target, message.candidates).then(sendResponse);
@@ -9,7 +11,24 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     fetchProfileInPage(message.url, _sender.tab?.id).then(sendResponse);
     return true;
   }
+  if (message?.type === "MERGE_SCORE_CACHE") {
+    mergeScoreCache(message.updates).then(sendResponse);
+    return true;
+  }
 });
+
+function mergeScoreCache(updates) {
+  const safeUpdates = updates && typeof updates === "object" ? updates : {};
+  scoreCacheWriteQueue = scoreCacheWriteQueue
+    .catch(() => undefined)
+    .then(async () => {
+      const saved = await chrome.storage.local.get("fastReviewScores");
+      const scores = { ...(saved.fastReviewScores || {}), ...safeUpdates };
+      await chrome.storage.local.set({ fastReviewScores: scores });
+      return { ok: true, scores };
+    });
+  return scoreCacheWriteQueue.catch((error) => ({ ok: false, error: `無法儲存契合度結果：${error.message}` }));
+}
 
 async function fetchProfileInPage(profileUrl, tabId) {
   const apiUrl = FastReview.candidateProfileApiUrl(profileUrl);

@@ -40,15 +40,16 @@
   }
 
   async function runScoring(target, limit) {
+    const runTarget = FastReview.compactText(target, 4000);
     state.running = true;
     state.stopRequested = false;
-    state.target = FastReview.compactText(target, 4000);
+    state.target = runTarget;
     const panel = getPanel();
     try {
       await loadScoreCache();
       clearStaleBadges();
       applyCachedScoresToList();
-      const candidates = findCandidates(limit, state.target);
+      const candidates = findCandidates(limit, runTarget);
       if (!candidates.length) throw new Error("目前已載入的人才都已評估。請繼續往下捲載入更多人才後，再按一次評估。 ");
       updatePanel(`找到 ${candidates.length} 位人才，正在讀取詳細資料…`, 0, candidates.length);
       candidates.forEach(({ card }) => renderBadge(card, { status: "loading" }));
@@ -71,22 +72,22 @@
         if (state.stopRequested) throw new Error("已停止評估。 ");
         const batch = profiles.slice(start, start + batchSize);
         updatePanel(`Jev 評估中 ${start + 1}–${Math.min(start + batch.length, profiles.length)}/${profiles.length}`, start, profiles.length);
-        const response = await sendMessage({ type: "SCORE_CANDIDATES", target, candidates: batch });
+        const response = await sendMessage({ type: "SCORE_CANDIDATES", target: runTarget, candidates: batch });
         if (!response?.ok) throw new Error(response?.error || "Jev 沒有回傳結果。 ");
         const batchUpdates = {};
         response.results.forEach((result) => {
           const candidate = candidates.find((item) => item.id === result.id);
           const profile = profiles.find((item) => item.id === result.id);
           if (candidate) {
-            const savedResult = { ...result, source: profile?.source, target: state.target, savedAt: Date.now() };
+            const savedResult = { ...result, source: profile?.source, target: runTarget, savedAt: Date.now() };
             state.scoreCache[candidate.id] = savedResult;
             batchUpdates[candidate.id] = savedResult;
-            renderBadge(candidate.card, savedResult);
+            if (state.target === runTarget) renderBadge(candidate.card, savedResult);
           }
         });
-        const latest = await chrome.storage.local.get("fastReviewScores");
-        state.scoreCache = { ...(latest.fastReviewScores || {}), ...batchUpdates };
-        await chrome.storage.local.set({ fastReviewScores: state.scoreCache });
+        const merged = await sendMessage({ type: "MERGE_SCORE_CACHE", updates: batchUpdates });
+        if (!merged?.ok) throw new Error(merged?.error || "無法儲存契合度結果。");
+        state.scoreCache = merged.scores;
       }
       updatePanel(`完成：已評估 ${profiles.length} 位人才`, profiles.length, profiles.length, true);
     } catch (error) {
