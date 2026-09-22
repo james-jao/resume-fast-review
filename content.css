@@ -39,3 +39,26 @@
 .fast-review-panel.is-done { border-color: #10b981; }
 .fast-review-panel progress { width: 100%; }
 .fast-review-panel button { justify-self: end; cursor: pointer; }
+
+.fast-review-detail-score {
+  position: fixed;
+  z-index: 2147483647;
+  right: 20px;
+  bottom: 20px;
+  display: grid;
+  min-width: 210px;
+  gap: 4px;
+  padding: 14px 18px;
+  border: 2px solid #59636f;
+  border-radius: 14px;
+  color: #1f2937;
+  background: #fff;
+  box-shadow: 0 8px 30px rgb(0 0 0 / 20%);
+  font: 14px/1.4 system-ui, sans-serif;
+}
+
+.fast-review-detail-score span { font-size: 32px; font-weight: 800; }
+.fast-review-detail-score small { color: #59636f; }
+.fast-review-detail-score.is-high { border-color: #087f5b; }
+.fast-review-detail-score.is-mid { border-color: #d97706; }
+.fast-review-detail-score.is-low { border-color: #c92a2a; }

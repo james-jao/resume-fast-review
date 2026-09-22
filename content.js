@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  const state = { running: false, stopRequested: false };
+  const state = { running: false, stopRequested: false, scoreCache: {}, target: "" };
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.type === "START_SCORING") {
@@ -15,7 +15,7 @@
     }
   });
 
-  function findCandidates(limit) {
+  function findCandidates(limit, target) {
     const seen = new Set();
     const found = [];
     const links = [...document.querySelectorAll('a[href*="SearchResumeMaster"]')]
@@ -29,6 +29,11 @@
       const candidateId = FastReview.candidateIdFromUrl(url);
       if (!candidateId || seen.has(candidateId)) continue;
       seen.add(candidateId);
+      const cached = FastReview.cachedScoreForTarget(state.scoreCache[candidateId], target);
+      if (cached) {
+        renderBadge(card, cached);
+        continue;
+      }
       found.push({ id: candidateId, url, card });
     }
     return found;
@@ -37,10 +42,13 @@
   async function runScoring(target, limit) {
     state.running = true;
     state.stopRequested = false;
+    state.target = FastReview.compactText(target, 4000);
     const panel = getPanel();
     try {
-      const candidates = findCandidates(limit);
-      if (!candidates.length) throw new Error("目前畫面找不到人才卡片。請先進入人才列表，或重新整理後再試。 ");
+      await loadScoreCache();
+      applyCachedScoresToList();
+      const candidates = findCandidates(limit, state.target);
+      if (!candidates.length) throw new Error("目前已載入的人才都已評估。請繼續往下捲載入更多人才後，再按一次評估。 ");
       updatePanel(`找到 ${candidates.length} 位人才，正在讀取詳細資料…`, 0, candidates.length);
       candidates.forEach(({ card }) => renderBadge(card, { status: "loading" }));
 
@@ -67,8 +75,13 @@
         response.results.forEach((result) => {
           const candidate = candidates.find((item) => item.id === result.id);
           const profile = profiles.find((item) => item.id === result.id);
-          if (candidate) renderBadge(candidate.card, { ...result, source: profile?.source });
+          if (candidate) {
+            const savedResult = { ...result, source: profile?.source, target: state.target, savedAt: Date.now() };
+            state.scoreCache[candidate.id] = savedResult;
+            renderBadge(candidate.card, savedResult);
+          }
         });
+        await chrome.storage.local.set({ fastReviewScores: state.scoreCache });
       }
       updatePanel(`完成：已評估 ${profiles.length} 位人才`, profiles.length, profiles.length, true);
     } catch (error) {
@@ -96,17 +109,23 @@
       card.appendChild(badge);
     }
     if (result.status === "loading") {
+      delete badge.dataset.scoreTarget;
+      delete badge.dataset.scorePercent;
       badge.className = "fast-review-badge is-loading";
       badge.textContent = "AI 讀取中";
       return;
     }
     if (result.status === "error") {
+      delete badge.dataset.scoreTarget;
+      delete badge.dataset.scorePercent;
       badge.className = "fast-review-badge is-error";
       badge.textContent = "詳細頁失敗";
       badge.title = result.error;
       return;
     }
     const percent = result.percent;
+    badge.dataset.scoreTarget = result.target || state.target;
+    badge.dataset.scorePercent = String(percent);
     badge.className = `fast-review-badge ${percent >= 75 ? "is-high" : percent >= 50 ? "is-mid" : "is-low"}`;
     badge.textContent = percent == null ? "AI 無結果" : `${percent}% 契合`;
     const confidence = Number.isFinite(result.confidence) ? `${Math.round(result.confidence * 100)}%` : "未知";
@@ -138,4 +157,48 @@
   function sendMessage(message) {
     return new Promise((resolve) => chrome.runtime.sendMessage(message, resolve));
   }
+
+  async function loadScoreCache() {
+    const saved = await chrome.storage.local.get(["fastReviewScores", "talentTarget"]);
+    state.scoreCache = saved.fastReviewScores && typeof saved.fastReviewScores === "object" ? saved.fastReviewScores : {};
+    if (!state.target) state.target = FastReview.compactText(saved.talentTarget, 4000);
+  }
+
+  function applyCachedScoresToList() {
+    if (!state.target) return;
+    document.querySelectorAll('[data-qa-id="resumeCard"]').forEach((card) => {
+      const link = card.querySelector('a[href*="SearchResumeMaster"]');
+      const candidateId = link && FastReview.candidateIdFromUrl(link.href);
+      const cached = candidateId && FastReview.cachedScoreForTarget(state.scoreCache[candidateId], state.target);
+      const badge = card.querySelector(":scope > .fast-review-badge");
+      if (cached && (badge?.dataset.scoreTarget !== cached.target || badge?.dataset.scorePercent !== String(cached.percent))) {
+        renderBadge(card, cached);
+      }
+    });
+  }
+
+  function showDetailScore() {
+    const candidateId = FastReview.candidateIdFromUrl(location.href);
+    if (!candidateId || !state.target) return;
+    const cached = FastReview.cachedScoreForTarget(state.scoreCache[candidateId], state.target);
+    if (!cached) return;
+    let panel = document.querySelector(".fast-review-detail-score");
+    if (!panel) {
+      panel = document.createElement("aside");
+      panel.className = "fast-review-detail-score";
+      document.body.appendChild(panel);
+    }
+    const confidence = Number.isFinite(cached.confidence) ? `${Math.round(cached.confidence * 100)}%` : "未知";
+    panel.innerHTML = `<strong>AI 人才契合度</strong><span>${cached.percent}%</span><small>判斷信心：${confidence}</small>`;
+    panel.classList.toggle("is-high", cached.percent >= 75);
+    panel.classList.toggle("is-mid", cached.percent >= 50 && cached.percent < 75);
+    panel.classList.toggle("is-low", cached.percent < 50);
+  }
+
+  loadScoreCache().then(() => {
+    applyCachedScoresToList();
+    showDetailScore();
+    const observer = new MutationObserver(() => applyCachedScoresToList());
+    observer.observe(document.body, { childList: true, subtree: true });
+  });
 })();

@@ -115,6 +115,14 @@
     return { ok: true, text };
   }
 
+  function cachedScoreForTarget(entry, target) {
+    if (!entry || typeof entry !== "object") return null;
+    if (compactText(entry.target, 4000) !== compactText(target, 4000)) return null;
+    if (!Number.isFinite(entry.percent) || entry.percent < 0 || entry.percent > 100) return null;
+    if (entry.confidence !== null && entry.confidence !== undefined && !Number.isFinite(entry.confidence)) return null;
+    return entry;
+  }
+
   function buildEvaluationRequest(target, candidates) {
     const state = {
       hiring_need: compactText(target, 4000),
@@ -161,6 +169,7 @@
     candidateIdFromUrl,
     candidateProfileApiUrl,
     extractResumeProfile,
+    cachedScoreForTarget,
     buildEvaluationRequest,
     parseScoreResults
   };

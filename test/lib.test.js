@@ -5,6 +5,7 @@ const {
   compactText,
   candidateProfileApiUrl,
   extractResumeProfile,
+  cachedScoreForTarget,
   buildEvaluationRequest,
   parseScoreResults
 } = require("../lib.js");
@@ -51,6 +52,13 @@ test("Jev 五級分數正確轉成百分比並限制範圍", () => {
   assert.equal(scoreToPercent(4), 100);
   assert.equal(scoreToPercent(9), 100);
   assert.equal(scoreToPercent("bad"), null);
+});
+
+test("只重用相同人才描述且格式正確的已存契合度", () => {
+  const entry = { target: "React 工程師", percent: 80, confidence: 0.72, source: "detail" };
+  assert.deepEqual(cachedScoreForTarget(entry, "  React 工程師  "), entry);
+  assert.equal(cachedScoreForTarget(entry, "Java 工程師"), null);
+  assert.equal(cachedScoreForTarget({ target: "React 工程師", percent: "80" }, "React 工程師"), null);
 });
 
 test("文字會清理空白並限制長度", () => {

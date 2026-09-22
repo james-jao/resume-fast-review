@@ -12,7 +12,7 @@
       <label for="target">想找的人才</label>
       <textarea id="target" rows="7" placeholder="例如：熟悉 React 與 TypeScript、3 年以上前端經驗，重視產品思維；有帶人經驗加分。"></textarea>
 
-      <label for="limit">本次評估人數</label>
+      <label for="limit">本次新增評估人數</label>
       <input id="limit" type="number" min="1" max="50" value="20">
 
       <details>
@@ -23,6 +23,7 @@
       </details>
 
       <button id="start" type="button">儲存並評估目前列表</button>
+      <p>已評估的人才會自動略過；往下捲載入更多人才後，可再次按下按鈕接續評估。</p>
       <p id="status" role="status"></p>
     </main>
     <script src="popup.js"></script>
