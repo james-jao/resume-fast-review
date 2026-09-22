@@ -60,7 +60,7 @@
       if (!candidates.length) {
         if (FastReview.candidateIdFromUrl(location.href)) {
           showDetailScore();
-          updatePanel("此人才在目前條件下已有契合度。", 1, 1, true);
+          panel.remove();
           return;
         }
         throw new Error("目前已載入的人才都已評估。請繼續往下捲載入更多人才後，再按一次評估。 ");
@@ -105,7 +105,12 @@
         state.scoreCache = merged.scores;
         if (FastReview.candidateIdFromUrl(location.href)) showDetailScore();
       }
-      updatePanel(`完成：已評估 ${profiles.length} 位人才`, profiles.length, profiles.length, true);
+      if (FastReview.candidateIdFromUrl(location.href)) {
+        showDetailScore();
+        panel.remove();
+      } else {
+        updatePanel(`完成：已評估 ${profiles.length} 位人才`, profiles.length, profiles.length, true);
+      }
     } catch (error) {
       updatePanel(error.message, 0, 1, true, true);
     } finally {
