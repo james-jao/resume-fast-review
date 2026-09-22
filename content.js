@@ -29,7 +29,8 @@
       const candidateId = FastReview.candidateIdFromUrl(url);
       if (!candidateId || seen.has(candidateId)) continue;
       seen.add(candidateId);
-      const cached = FastReview.cachedScoreForTarget(state.scoreCache[candidateId], target);
+      const cacheKey = FastReview.scoreCacheKey(candidateId, target);
+      const cached = FastReview.cachedScoreForTarget(state.scoreCache[cacheKey], target);
       if (cached) {
         renderBadge(card, cached);
         continue;
@@ -52,7 +53,7 @@
       const candidates = findCandidates(limit, runTarget);
       if (!candidates.length) throw new Error("目前已載入的人才都已評估。請繼續往下捲載入更多人才後，再按一次評估。 ");
       updatePanel(`找到 ${candidates.length} 位人才，正在讀取詳細資料…`, 0, candidates.length);
-      candidates.forEach(({ card }) => renderBadge(card, { status: "loading" }));
+      candidates.forEach(({ card }) => renderBadge(card, { status: "loading", target: runTarget }));
 
       const profiles = [];
       for (let index = 0; index < candidates.length; index += 1) {
@@ -61,7 +62,7 @@
         const detail = await fetchProfile(candidate.url);
         const extracted = detail?.ok ? FastReview.extractResumeProfile(detail.body) : { ok: false, error: detail?.error };
         if (extracted.ok) profiles.push({ id: candidate.id, profile: extracted.text, source: "detail" });
-        else renderBadge(candidate.card, { status: "error", error: extracted.error || "詳細頁無法讀取" });
+        else if (state.target === runTarget) renderBadge(candidate.card, { status: "error", target: runTarget, error: extracted.error || "詳細頁無法讀取" });
         updatePanel(`讀取詳細資料 ${index + 1}/${candidates.length}`, index + 1, candidates.length);
       }
 
@@ -80,8 +81,9 @@
           const profile = profiles.find((item) => item.id === result.id);
           if (candidate) {
             const savedResult = { ...result, source: profile?.source, target: runTarget, savedAt: Date.now() };
-            state.scoreCache[candidate.id] = savedResult;
-            batchUpdates[candidate.id] = savedResult;
+            const cacheKey = FastReview.scoreCacheKey(candidate.id, runTarget);
+            state.scoreCache[cacheKey] = savedResult;
+            batchUpdates[cacheKey] = savedResult;
             if (state.target === runTarget) renderBadge(candidate.card, savedResult);
           }
         });
@@ -115,14 +117,14 @@
       card.appendChild(badge);
     }
     if (result.status === "loading") {
-      delete badge.dataset.scoreTarget;
+      badge.dataset.scoreTarget = result.target || state.target;
       delete badge.dataset.scorePercent;
       badge.className = "fast-review-badge is-loading";
       badge.textContent = "AI 讀取中";
       return;
     }
     if (result.status === "error") {
-      delete badge.dataset.scoreTarget;
+      badge.dataset.scoreTarget = result.target || state.target;
       delete badge.dataset.scorePercent;
       badge.className = "fast-review-badge is-error";
       badge.textContent = "詳細頁失敗";
@@ -175,7 +177,8 @@
     document.querySelectorAll('[data-qa-id="resumeCard"]').forEach((card) => {
       const link = card.querySelector('a[href*="SearchResumeMaster"]');
       const candidateId = link && FastReview.candidateIdFromUrl(link.href);
-      const cached = candidateId && FastReview.cachedScoreForTarget(state.scoreCache[candidateId], state.target);
+      const cacheKey = candidateId && FastReview.scoreCacheKey(candidateId, state.target);
+      const cached = cacheKey && FastReview.cachedScoreForTarget(state.scoreCache[cacheKey], state.target);
       const badge = card.querySelector(":scope > .fast-review-badge");
       if (cached && (badge?.dataset.scoreTarget !== cached.target || badge?.dataset.scorePercent !== String(cached.percent))) {
         renderBadge(card, cached);
@@ -204,7 +207,8 @@
       existing?.remove();
       return;
     }
-    const cached = FastReview.cachedScoreForTarget(state.scoreCache[candidateId], state.target);
+    const cacheKey = FastReview.scoreCacheKey(candidateId, state.target);
+    const cached = FastReview.cachedScoreForTarget(state.scoreCache[cacheKey], state.target);
     if (!cached) {
       existing?.remove();
       return;

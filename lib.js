@@ -123,6 +123,12 @@
     return entry;
   }
 
+  function scoreCacheKey(candidateId, target) {
+    const id = String(candidateId || "").trim();
+    const normalizedTarget = compactText(target, 4000);
+    return id && normalizedTarget ? `${id}\u001f${normalizedTarget}` : null;
+  }
+
   function buildEvaluationRequest(target, candidates) {
     const state = {
       hiring_need: compactText(target, 4000),
@@ -170,6 +176,7 @@
     candidateProfileApiUrl,
     extractResumeProfile,
     cachedScoreForTarget,
+    scoreCacheKey,
     buildEvaluationRequest,
     parseScoreResults
   };

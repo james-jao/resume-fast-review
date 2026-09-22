@@ -6,6 +6,7 @@ const {
   candidateProfileApiUrl,
   extractResumeProfile,
   cachedScoreForTarget,
+  scoreCacheKey,
   buildEvaluationRequest,
   parseScoreResults
 } = require("../lib.js");
@@ -59,6 +60,12 @@ test("只重用相同人才描述且格式正確的已存契合度", () => {
   assert.deepEqual(cachedScoreForTarget(entry, "  React 工程師  "), entry);
   assert.equal(cachedScoreForTarget(entry, "Java 工程師"), null);
   assert.equal(cachedScoreForTarget({ target: "React 工程師", percent: "80" }, "React 工程師"), null);
+});
+
+test("快取以人才與人才描述共同分區", () => {
+  assert.notEqual(scoreCacheKey("123", "React 工程師"), scoreCacheKey("123", "Java 工程師"));
+  assert.notEqual(scoreCacheKey("123", "React 工程師"), scoreCacheKey("456", "React 工程師"));
+  assert.equal(scoreCacheKey("", "React 工程師"), null);
 });
 
 test("文字會清理空白並限制長度", () => {
