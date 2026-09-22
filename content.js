@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  const state = { running: false, stopRequested: false, scoreCache: {}, target: "" };
+  const state = { running: false, stopRequested: false, scoreCache: {}, target: "", refreshTimer: null };
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.type === "START_SCORING") {
@@ -46,6 +46,7 @@
     const panel = getPanel();
     try {
       await loadScoreCache();
+      clearStaleBadges();
       applyCachedScoresToList();
       const candidates = findCandidates(limit, state.target);
       if (!candidates.length) throw new Error("目前已載入的人才都已評估。請繼續往下捲載入更多人才後，再按一次評估。 ");
@@ -72,15 +73,19 @@
         updatePanel(`Jev 評估中 ${start + 1}–${Math.min(start + batch.length, profiles.length)}/${profiles.length}`, start, profiles.length);
         const response = await sendMessage({ type: "SCORE_CANDIDATES", target, candidates: batch });
         if (!response?.ok) throw new Error(response?.error || "Jev 沒有回傳結果。 ");
+        const batchUpdates = {};
         response.results.forEach((result) => {
           const candidate = candidates.find((item) => item.id === result.id);
           const profile = profiles.find((item) => item.id === result.id);
           if (candidate) {
             const savedResult = { ...result, source: profile?.source, target: state.target, savedAt: Date.now() };
             state.scoreCache[candidate.id] = savedResult;
+            batchUpdates[candidate.id] = savedResult;
             renderBadge(candidate.card, savedResult);
           }
         });
+        const latest = await chrome.storage.local.get("fastReviewScores");
+        state.scoreCache = { ...(latest.fastReviewScores || {}), ...batchUpdates };
         await chrome.storage.local.set({ fastReviewScores: state.scoreCache });
       }
       updatePanel(`完成：已評估 ${profiles.length} 位人才`, profiles.length, profiles.length, true);
@@ -177,12 +182,33 @@
     });
   }
 
+  function clearStaleBadges() {
+    document.querySelectorAll('[data-qa-id="resumeCard"] > .fast-review-badge[data-score-target]').forEach((badge) => {
+      if (badge.dataset.scoreTarget !== state.target) badge.remove();
+    });
+  }
+
+  function scheduleListRefresh() {
+    clearTimeout(state.refreshTimer);
+    state.refreshTimer = setTimeout(() => {
+      clearStaleBadges();
+      applyCachedScoresToList();
+    }, 120);
+  }
+
   function showDetailScore() {
     const candidateId = FastReview.candidateIdFromUrl(location.href);
-    if (!candidateId || !state.target) return;
+    const existing = document.querySelector(".fast-review-detail-score");
+    if (!candidateId || !state.target) {
+      existing?.remove();
+      return;
+    }
     const cached = FastReview.cachedScoreForTarget(state.scoreCache[candidateId], state.target);
-    if (!cached) return;
-    let panel = document.querySelector(".fast-review-detail-score");
+    if (!cached) {
+      existing?.remove();
+      return;
+    }
+    let panel = existing;
     if (!panel) {
       panel = document.createElement("aside");
       panel.className = "fast-review-detail-score";
@@ -198,7 +224,15 @@
   loadScoreCache().then(() => {
     applyCachedScoresToList();
     showDetailScore();
-    const observer = new MutationObserver(() => applyCachedScoresToList());
+    const observer = new MutationObserver(scheduleListRefresh);
     observer.observe(document.body, { childList: true, subtree: true });
+  });
+
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== "local") return;
+    if (changes.fastReviewScores) state.scoreCache = changes.fastReviewScores.newValue || {};
+    if (changes.talentTarget) state.target = FastReview.compactText(changes.talentTarget.newValue, 4000);
+    scheduleListRefresh();
+    showDetailScore();
   });
 })();
