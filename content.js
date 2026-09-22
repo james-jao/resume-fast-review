@@ -81,22 +81,7 @@
 
   async function fetchProfile(url) {
     try {
-      const apiUrl = FastReview.candidateProfileApiUrl(url);
-      if (!apiUrl) {
-        return { ok: false, error: "不允許讀取這個網址。" };
-      }
-      const response = await fetch(apiUrl, { credentials: "include", redirect: "error" });
-      if (response.status === 401 || response.status === 403) {
-        return { ok: false, error: "履歷 API 拒絕存取，請確認 104 登入狀態。" };
-      }
-      if (!response.ok) return { ok: false, error: `履歷 API 讀取失敗（HTTP ${response.status}）。` };
-      const finalUrl = new URL(response.url);
-      if (finalUrl.hostname !== "auth.vip.104.com.tw" || !finalUrl.pathname.startsWith("/vipapi/resume/search/")) {
-        return { ok: false, error: "履歷 API 回傳來源不正確，未送出評估。" };
-      }
-      const contentType = response.headers.get("content-type") || "";
-      if (!contentType.includes("application/json")) return { ok: false, error: "履歷 API 沒有回傳 JSON。" };
-      return { ok: true, body: await response.json() };
+      return await sendMessage({ type: "FETCH_PROFILE", url });
     } catch (error) {
       return { ok: false, error: `履歷 API 讀取失敗：${error.message}` };
     }

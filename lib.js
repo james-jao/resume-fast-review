@@ -82,8 +82,15 @@
   ];
   const PRIVATE_FIELD = /(?:address|email|phone|mobile|contact|picture|photo|avatar|personalPic|idNo|pId|userName|nameEng)/i;
 
+  function redactContactText(value) {
+    return value
+      .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[已移除 Email]")
+      .replace(/(?:\+?886[-\s]?)?0?9\d{2}[-\s]?\d{3}[-\s]?\d{3}/g, "[已移除電話]");
+  }
+
   function removePrivateFields(value) {
     if (Array.isArray(value)) return value.map(removePrivateFields);
+    if (typeof value === "string") return redactContactText(value);
     if (!value || typeof value !== "object") return value;
     return Object.fromEntries(
       Object.entries(value)
@@ -112,7 +119,6 @@
     const state = {
       hiring_need: compactText(target, 4000),
       candidates: candidates.map((candidate) => ({
-        id: candidate.id,
         profile: compactText(candidate.profile)
       }))
     };
@@ -121,8 +127,7 @@
       questions[`candidate_${index}`] = {
         type: "score",
         instructions: {
-          question: `人才 \`candidates[${index}].profile\` 與招募需求 \`hiring_need\` 的整體契合程度如何？只依據履歷中可見的證據判斷；缺少證據不能當作符合。`,
-          candidate_id: candidate.id
+          question: `人才 \`candidates[${index}].profile\` 與招募需求 \`hiring_need\` 的整體契合程度如何？只依據履歷中可見的證據判斷；缺少證據不能當作符合。`
         },
         criteria: SCORE_LEVELS
       };

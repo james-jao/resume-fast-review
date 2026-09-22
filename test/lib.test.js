@@ -35,14 +35,14 @@ test("履歷 API 只保留媒合資料並移除聯絡與識別資訊", () => {
         idNo: "1756775867113",
         expPeriodDesc: "8 年工作經驗",
         expJobArr: [{ companyName: "範例公司", jobName: ".NET 工程師" }],
-        careerSkillDescForMaster: "C#、ASP.NET Core"
+        careerSkillDescForMaster: "C#、ASP.NET Core；聯絡 candidate@example.com 或 0912-345-678"
       }
     }
   });
   assert.equal(result.ok, true);
   assert.match(result.text, /8 年工作經驗/);
   assert.match(result.text, /ASP\.NET Core/);
-  assert.doesNotMatch(result.text, /candidate@example\.com|0912345678|台北市某路|photo\.jpg|1756775867113|王小明/);
+  assert.doesNotMatch(result.text, /candidate@example\.com|0912-345-678|台北市某路|photo\.jpg|1756775867113|王小明/);
 });
 
 test("Jev 五級分數正確轉成百分比並限制範圍", () => {
@@ -66,7 +66,8 @@ test("批次請求為每位人才建立獨立 Score 問題", () => {
   assert.equal(request.model, "jev-latest");
   assert.equal(request.questions.candidate_0.type, "score");
   assert.equal(request.questions.candidate_1.criteria.length, 5);
-  assert.equal(request.state.candidates[1].id, "b");
+  assert.equal(request.state.candidates[1].profile, "五年後端經驗");
+  assert.doesNotMatch(JSON.stringify(request), /\"id\"|candidate_id|\"a\"|\"b\"/);
 });
 
 test("依官方 Score 回應契約解析百分比與信心", () => {
