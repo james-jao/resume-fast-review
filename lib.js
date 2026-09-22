@@ -129,6 +129,14 @@
     return id && normalizedTarget ? `${id}\u001f${normalizedTarget}` : null;
   }
 
+  function uncachedDetailCandidate(value, scoreCache, target) {
+    const id = candidateIdFromUrl(value);
+    if (!id) return null;
+    const cacheKey = scoreCacheKey(id, target);
+    if (cachedScoreForTarget(scoreCache?.[cacheKey], target)) return null;
+    return { id, url: new URL(value, "https://vip.104.com.tw/").href, card: null };
+  }
+
   function buildEvaluationRequest(target, candidates) {
     const state = {
       hiring_need: compactText(target, 4000),
@@ -177,6 +185,7 @@
     extractResumeProfile,
     cachedScoreForTarget,
     scoreCacheKey,
+    uncachedDetailCandidate,
     buildEvaluationRequest,
     parseScoreResults
   };

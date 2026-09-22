@@ -7,6 +7,7 @@ const {
   extractResumeProfile,
   cachedScoreForTarget,
   scoreCacheKey,
+  uncachedDetailCandidate,
   buildEvaluationRequest,
   parseScoreResults
 } = require("../lib.js");
@@ -66,6 +67,16 @@ test("快取以人才與人才描述共同分區", () => {
   assert.notEqual(scoreCacheKey("123", "React 工程師"), scoreCacheKey("123", "Java 工程師"));
   assert.notEqual(scoreCacheKey("123", "React 工程師"), scoreCacheKey("456", "React 工程師"));
   assert.equal(scoreCacheKey("", "React 工程師"), null);
+});
+
+test("直接開啟的詳細頁在沒有相同條件快取時可單獨評估", () => {
+  const url = "https://vip.104.com.tw/search/SearchResumeMaster?idno=1756775867113&sn=1";
+  const target = ".NET 工程師";
+  assert.deepEqual(uncachedDetailCandidate(url, {}, target), { id: "1756775867113", url, card: null });
+  const cache = {
+    [scoreCacheKey("1756775867113", target)]: { target, percent: 80, confidence: 0.7 }
+  };
+  assert.equal(uncachedDetailCandidate(url, cache, target), null);
 });
 
 test("文字會清理空白並限制長度", () => {

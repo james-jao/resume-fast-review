@@ -18,6 +18,12 @@
   function findCandidates(limit, target) {
     const seen = new Set();
     const found = [];
+    const detailCandidateId = FastReview.candidateIdFromUrl(location.href);
+    if (detailCandidateId) {
+      const candidate = FastReview.uncachedDetailCandidate(location.href, state.scoreCache, target);
+      if (candidate) found.push(candidate);
+      return found;
+    }
     const links = [...document.querySelectorAll('a[href*="SearchResumeMaster"]')]
       .filter((link) => FastReview.isCandidateProfileUrl(link.href));
     for (const link of links) {
@@ -51,9 +57,16 @@
       clearStaleBadges();
       applyCachedScoresToList();
       const candidates = findCandidates(limit, runTarget);
-      if (!candidates.length) throw new Error("目前已載入的人才都已評估。請繼續往下捲載入更多人才後，再按一次評估。 ");
+      if (!candidates.length) {
+        if (FastReview.candidateIdFromUrl(location.href)) {
+          showDetailScore();
+          updatePanel("此人才在目前條件下已有契合度。", 1, 1, true);
+          return;
+        }
+        throw new Error("目前已載入的人才都已評估。請繼續往下捲載入更多人才後，再按一次評估。 ");
+      }
       updatePanel(`找到 ${candidates.length} 位人才，正在讀取詳細資料…`, 0, candidates.length);
-      candidates.forEach(({ card }) => renderBadge(card, { status: "loading", target: runTarget }));
+      candidates.forEach(({ card }) => { if (card) renderBadge(card, { status: "loading", target: runTarget }); });
 
       const profiles = [];
       for (let index = 0; index < candidates.length; index += 1) {
@@ -62,7 +75,7 @@
         const detail = await fetchProfile(candidate.url);
         const extracted = detail?.ok ? FastReview.extractResumeProfile(detail.body) : { ok: false, error: detail?.error };
         if (extracted.ok) profiles.push({ id: candidate.id, profile: extracted.text, source: "detail" });
-        else if (state.target === runTarget) renderBadge(candidate.card, { status: "error", target: runTarget, error: extracted.error || "詳細頁無法讀取" });
+        else if (candidate.card && state.target === runTarget) renderBadge(candidate.card, { status: "error", target: runTarget, error: extracted.error || "詳細頁無法讀取" });
         updatePanel(`讀取詳細資料 ${index + 1}/${candidates.length}`, index + 1, candidates.length);
       }
 
@@ -84,12 +97,13 @@
             const cacheKey = FastReview.scoreCacheKey(candidate.id, runTarget);
             state.scoreCache[cacheKey] = savedResult;
             batchUpdates[cacheKey] = savedResult;
-            if (state.target === runTarget) renderBadge(candidate.card, savedResult);
+            if (candidate.card && state.target === runTarget) renderBadge(candidate.card, savedResult);
           }
         });
         const merged = await sendMessage({ type: "MERGE_SCORE_CACHE", updates: batchUpdates });
         if (!merged?.ok) throw new Error(merged?.error || "無法儲存契合度結果。");
         state.scoreCache = merged.scores;
+        if (FastReview.candidateIdFromUrl(location.href)) showDetailScore();
       }
       updatePanel(`完成：已評估 ${profiles.length} 位人才`, profiles.length, profiles.length, true);
     } catch (error) {
