@@ -49,7 +49,7 @@
         if (state.stopRequested) throw new Error("已停止評估。 ");
         const candidate = candidates[index];
         const detail = await fetchProfile(candidate.url);
-        const extracted = detail?.ok ? extractProfile(detail.html) : { ok: false, error: detail?.error };
+        const extracted = detail?.ok ? FastReview.extractResumeProfile(detail.body) : { ok: false, error: detail?.error };
         if (extracted.ok) profiles.push({ id: candidate.id, profile: extracted.text, source: "detail" });
         else renderBadge(candidate.card, { status: "error", error: extracted.error || "詳細頁無法讀取" });
         updatePanel(`讀取詳細資料 ${index + 1}/${candidates.length}`, index + 1, candidates.length);
@@ -79,42 +79,26 @@
     }
   }
 
-  function extractProfile(html) {
-    const doc = new DOMParser().parseFromString(html, "text/html");
-    doc.querySelectorAll("script,style,noscript,svg,header,footer,nav").forEach((node) => node.remove());
-    const main = doc.querySelector(".msc-resume-wrapper");
-    if (!main) return { ok: false, error: "詳細頁找不到履歷主內容，未送出評估。" };
-    const text = FastReview.compactText(main?.textContent || "");
-    const loginSignals = (text.match(/登入|登錄|sign\s*in|login/gi) || []).length;
-    if (text.length < 300) return { ok: false, error: "詳細頁內容不足，未送出評估。" };
-    if (loginSignals >= 2) return { ok: false, error: "詳細頁疑似登入畫面，未送出評估。" };
-    return { ok: true, text };
-  }
-
   async function fetchProfile(url) {
     try {
-      const parsed = new URL(url, location.href);
-      if (parsed.protocol !== "https:" || parsed.hostname !== "vip.104.com.tw") {
+      const apiUrl = FastReview.candidateProfileApiUrl(url);
+      if (!apiUrl) {
         return { ok: false, error: "不允許讀取這個網址。" };
       }
-      const response = await fetch(parsed.href, { credentials: "include", redirect: "follow" });
-      if (!response.ok) return { ok: false, error: `詳細頁讀取失敗（HTTP ${response.status}）。` };
+      const response = await fetch(apiUrl, { credentials: "include", redirect: "error" });
+      if (response.status === 401 || response.status === 403) {
+        return { ok: false, error: "履歷 API 拒絕存取，請確認 104 登入狀態。" };
+      }
+      if (!response.ok) return { ok: false, error: `履歷 API 讀取失敗（HTTP ${response.status}）。` };
       const finalUrl = new URL(response.url);
-      const finalTarget = finalUrl.pathname + finalUrl.search;
-      if (finalUrl.hostname !== "vip.104.com.tw" || /login|signin|sso/i.test(finalTarget)) {
-        return { ok: false, error: "詳細頁被導向登入頁，請確認 104 登入狀態。" };
-      }
-      if (!FastReview.isCandidateProfileUrl(finalUrl.href)) {
-        return { ok: false, error: "詳細頁被導向其他 104 頁面，未送出評估。" };
-      }
-      if (FastReview.candidateIdFromUrl(finalUrl.href) !== FastReview.candidateIdFromUrl(parsed.href)) {
-        return { ok: false, error: "詳細頁的人才識別不一致，未送出評估。" };
+      if (finalUrl.hostname !== "auth.vip.104.com.tw" || !finalUrl.pathname.startsWith("/vipapi/resume/search/")) {
+        return { ok: false, error: "履歷 API 回傳來源不正確，未送出評估。" };
       }
       const contentType = response.headers.get("content-type") || "";
-      if (!contentType.includes("text/html")) return { ok: false, error: "詳細頁沒有回傳 HTML。" };
-      return { ok: true, html: await response.text() };
+      if (!contentType.includes("application/json")) return { ok: false, error: "履歷 API 沒有回傳 JSON。" };
+      return { ok: true, body: await response.json() };
     } catch (error) {
-      return { ok: false, error: `詳細頁讀取失敗：${error.message}` };
+      return { ok: false, error: `履歷 API 讀取失敗：${error.message}` };
     }
   }
 

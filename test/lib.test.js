@@ -1,11 +1,48 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { scoreToPercent, compactText, buildEvaluationRequest, parseScoreResults } = require("../lib.js");
+const {
+  scoreToPercent,
+  compactText,
+  candidateProfileApiUrl,
+  extractResumeProfile,
+  buildEvaluationRequest,
+  parseScoreResults
+} = require("../lib.js");
 
 test("辨識 104 真實 SearchResumeMaster 人才網址", () => {
   const url = "https://vip.104.com.tw/search/SearchResumeMaster?idno=1756775867113&sn=1";
   assert.equal(require("../lib.js").isCandidateProfileUrl(url), true);
   assert.equal(require("../lib.js").candidateIdFromUrl(url), "1756775867113");
+});
+
+test("將詳細頁網址轉成登入狀態下的履歷 JSON API", () => {
+  const url = "https://vip.104.com.tw/search/SearchResumeMaster?idno=1756775867113&path_for_log=list_search";
+  assert.equal(
+    candidateProfileApiUrl(url),
+    "https://auth.vip.104.com.tw/vipapi/resume/search/1756775867113?path_for_log=list_search"
+  );
+});
+
+test("履歷 API 只保留媒合資料並移除聯絡與識別資訊", () => {
+  const result = extractResumeProfile({
+    data: {
+      userName: "王小明",
+      resume: {
+        email: "candidate@example.com",
+        phone: ["0912345678"],
+        addressDesc: "台北市某路",
+        personalPic: "https://example.com/photo.jpg",
+        idNo: "1756775867113",
+        expPeriodDesc: "8 年工作經驗",
+        expJobArr: [{ companyName: "範例公司", jobName: ".NET 工程師" }],
+        careerSkillDescForMaster: "C#、ASP.NET Core"
+      }
+    }
+  });
+  assert.equal(result.ok, true);
+  assert.match(result.text, /8 年工作經驗/);
+  assert.match(result.text, /ASP\.NET Core/);
+  assert.doesNotMatch(result.text, /candidate@example\.com|0912345678|台北市某路|photo\.jpg|1756775867113|王小明/);
 });
 
 test("Jev 五級分數正確轉成百分比並限制範圍", () => {

@@ -43,6 +43,71 @@
     return new URL(value, "https://vip.104.com.tw/").searchParams.get("idno");
   }
 
+  function candidateProfileApiUrl(value) {
+    if (!isCandidateProfileUrl(value)) return null;
+    const url = new URL(value, "https://vip.104.com.tw/");
+    const candidateId = url.searchParams.get("idno");
+    const rawPath = url.searchParams.get("path_for_log") || "list_search";
+    const pathForLog = /^[a-z0-9_-]+$/i.test(rawPath) ? rawPath : "list_search";
+    return `https://auth.vip.104.com.tw/vipapi/resume/search/${candidateId}?path_for_log=${encodeURIComponent(pathForLog)}`;
+  }
+
+  const RESUME_MATCH_FIELDS = [
+    "achievement",
+    "careerSkillDescForMaster",
+    "characteristic",
+    "degreeLevelDesc",
+    "degreeStatusDesc",
+    "detailExpDesc",
+    "driverLicenseDesc",
+    "eduDesc",
+    "eduOutput",
+    "expCatTimeDesc",
+    "expJobArr",
+    "expPeriodDesc",
+    "hopeSalaryDesc",
+    "indCatNoDesc",
+    "introduction",
+    "jobCatNoDesc",
+    "major",
+    "majorCatDesc",
+    "motto",
+    "otherCourse",
+    "pcskillDescForMaster",
+    "proDesc2",
+    "recentJobDesc",
+    "remoteWork",
+    "summaryDisplay",
+    "talentDesc"
+  ];
+  const PRIVATE_FIELD = /(?:address|email|phone|mobile|contact|picture|photo|avatar|personalPic|idNo|pId|userName|nameEng)/i;
+
+  function removePrivateFields(value) {
+    if (Array.isArray(value)) return value.map(removePrivateFields);
+    if (!value || typeof value !== "object") return value;
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([key]) => !PRIVATE_FIELD.test(key))
+        .map(([key, item]) => [key, removePrivateFields(item)])
+    );
+  }
+
+  function extractResumeProfile(body) {
+    const resume = body?.data?.resume;
+    if (!resume || typeof resume !== "object") {
+      return { ok: false, error: "履歷 API 沒有回傳人才資料，請確認 104 登入狀態。" };
+    }
+    const selected = {};
+    RESUME_MATCH_FIELDS.forEach((field) => {
+      if (resume[field] !== undefined && resume[field] !== null && resume[field] !== "") {
+        selected[field] = removePrivateFields(resume[field]);
+      }
+    });
+    const text = compactText(JSON.stringify(selected), 18000);
+    if (text.length < 100) return { ok: false, error: "履歷 API 回傳的媒合資料不足，未送出評估。" };
+    return { ok: true, text };
+  }
+
   function buildEvaluationRequest(target, candidates) {
     const state = {
       hiring_need: compactText(target, 4000),
@@ -89,6 +154,8 @@
     compactText,
     isCandidateProfileUrl,
     candidateIdFromUrl,
+    candidateProfileApiUrl,
+    extractResumeProfile,
     buildEvaluationRequest,
     parseScoreResults
   };
