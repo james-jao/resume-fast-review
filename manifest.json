@@ -6,7 +6,6 @@
   "permissions": ["activeTab", "storage", "scripting"],
   "host_permissions": [
     "https://vip.104.com.tw/*",
-    "https://auth.vip.104.com.tw/*",
     "https://api.typesafe.ai/*"
   ],
   "background": {
