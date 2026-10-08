@@ -33,7 +33,7 @@ function syncInvitations(force) {
     }
     const lastAttemptAt = Date.now();
     try {
-      const response = await fetch(Invitations.CSV_URL, { cache: "no-store", credentials: "omit", signal: AbortSignal.timeout(20000) });
+      const response = await fetch(Invitations.CSV_URL, { cache: "no-store", credentials: "omit", redirect: "error", signal: AbortSignal.timeout(20000) });
       if (!response.ok) throw new Error(`Google 表格讀取失敗（HTTP ${response.status}）。`);
       const text = await response.text();
       if (text.length > 2000000) throw new Error("邀約表過大，無法同步。");

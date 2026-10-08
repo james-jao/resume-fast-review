@@ -28,6 +28,7 @@ test("同步解析 Google CSV，只存需要的欄位並合併並行請求", asy
     requests += 1;
     assert.equal(url, Invitations.CSV_URL);
     assert.equal(options.credentials, "omit");
+    assert.equal(options.redirect, "error");
     return { ok: true, text: async () => '人選姓名,邀約狀況,電話\n王小明,安排面談,0912345678' };
   });
   const [a, b] = await Promise.all([instance.send(true), instance.send(true)]);

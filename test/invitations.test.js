@@ -1,6 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const Invitations = require("../invitations.js");
+const manifest = require("../manifest.json");
 
 const csv = '\ufeff#,人選姓名,發信邀約日,HR最後更新日期,邀約狀況,一面日期,一面結果,二面日期,二面結果\r\n1,王小明,,2026/10/01,安排面談,10/03,進二面,10/08,不錄用\r\n2,陳怡君,,10/02,"因其他原因評估後，不邀約",--,--,--,--\r\n3,王小明,,10/05,人選婉拒,--,--,--,--\r\n4,王大明,,10/07,未連繫上,--,--,--,--\r\n';
 
@@ -44,4 +45,16 @@ test("狀態保留邀約狀況及面試結果，不將列入表格等同已發�
   assert.equal(Invitations.recordStatus(records[0]), "安排面談 · 一面：進二面 · 二面：不錄用");
   assert.equal(Invitations.recordStatus(records[3]), "未連繫上");
   assert.match(Invitations.recordLink(records[0]), /gid=202392536&range=B2:J2/);
+});
+
+test("Chrome 只需 Google 文件權限，CSV 端點固定分頁及單列表頭", () => {
+  assert.ok(manifest.host_permissions.includes("https://docs.google.com/*"));
+  assert.equal(manifest.host_permissions.some((host) => host.includes("googleusercontent.com")), false);
+  const url = new URL(Invitations.CSV_URL);
+  assert.equal(url.hostname, "docs.google.com");
+  assert.equal(url.searchParams.get("gid"), "202392536");
+  assert.equal(url.searchParams.get("headers"), "1");
+  assert.equal(url.searchParams.get("tqx"), "out:csv");
+  assert.ok(manifest.content_scripts[0].js.includes("invitations.js"));
+  assert.deepEqual(manifest.content_scripts[0].matches, ["https://vip.104.com.tw/*"]);
 });

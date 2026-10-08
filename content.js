@@ -251,7 +251,7 @@
     const timestamp = state.invitations.syncedAt ? new Date(state.invitations.syncedAt).toLocaleString("zh-TW") : "未同步";
     badge.title = [
       "僅依姓名比對，請確認為同一位人選。點擊開啟邀約表。",
-      ...match.records.map((record) => `第 ${record.row} 列｜${record.name}｜${Invitations.recordStatus(record)}｜發信：${record.invitedAt || "未填"}｜HR更新：${record.updatedAt || "未填"}｜一面：${record.firstDate || "未填"}｜二面：${record.secondDate || "未填"}`),
+      ...match.records.map((record) => `第 ${record.row} 列｜${record.name}｜${Invitations.recordStatus(record)}`),
       `表格同步：${timestamp}${stale ? "；資料可能已更新，請在擴充功能同步" : ""}`
     ].join("\n");
   }

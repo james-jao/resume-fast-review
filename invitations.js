@@ -3,7 +3,7 @@
   const SHEET_ID = "1FA_iLasxq_048kEopxAjPeXZAA4gdo-XDTGkrZLEFIs";
   const SHEET_GID = "202392536";
   const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit#gid=${SHEET_GID}`;
-  const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`;
+  const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&headers=1&gid=${SHEET_GID}`;
   const MAX_AGE_MS = 5 * 60 * 1000;
 
   function parseCsv(text) {
@@ -40,9 +40,7 @@
     const nameColumn = column("人選姓名"), statusColumn = column("邀約狀況");
     if (nameColumn < 0 || statusColumn < 0) throw new Error("邀約表缺少「人選姓名」或「邀約狀況」欄位；請確認表格可讀取。");
     const fields = {
-      invitedAt: column("發信邀約日"), updatedAt: column("HR最後更新日期"),
-      firstDate: column("一面日期"), firstResult: column("一面結果"),
-      secondDate: column("二面日期"), secondResult: column("二面結果")
+      firstResult: column("一面結果"), secondResult: column("二面結果")
     };
     return rows.slice(1).flatMap((cells, index) => {
       const name = clean(cells[nameColumn]);
