@@ -1,8 +1,14 @@
 importScripts("lib.js");
+importScripts("invitations.js");
 
 let scoreCacheWriteQueue = Promise.resolve();
+let invitationSync = null;
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type === "SYNC_INVITATIONS") {
+    syncInvitations(message.force === true).then(sendResponse);
+    return true;
+  }
   if (message?.type === "SCORE_CANDIDATES") {
     scoreCandidates(message.target, message.candidates).then(sendResponse);
     return true;
@@ -16,6 +22,33 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 });
+
+function syncInvitations(force) {
+  if (invitationSync) return invitationSync;
+  invitationSync = (async () => {
+    const saved = await chrome.storage.local.get("fastReviewInvitations");
+    const previous = saved.fastReviewInvitations;
+    if (!force && previous?.lastAttemptAt && Date.now() - previous.lastAttemptAt < Invitations.MAX_AGE_MS) {
+      return { ok: !previous.error, data: previous, error: previous.error };
+    }
+    const lastAttemptAt = Date.now();
+    try {
+      const response = await fetch(Invitations.CSV_URL, { cache: "no-store", credentials: "omit", signal: AbortSignal.timeout(20000) });
+      if (!response.ok) throw new Error(`Google 表格讀取失敗（HTTP ${response.status}）。`);
+      const text = await response.text();
+      if (text.length > 2000000) throw new Error("邀約表過大，無法同步。");
+      const records = Invitations.parseInvitationCsv(text);
+      const data = { records, syncedAt: Date.now(), lastAttemptAt, error: "" };
+      await chrome.storage.local.set({ fastReviewInvitations: data });
+      return { ok: true, data };
+    } catch (error) {
+      const data = { records: previous?.records || [], syncedAt: previous?.syncedAt || null, lastAttemptAt, error: `同步失敗：${error.message}` };
+      await chrome.storage.local.set({ fastReviewInvitations: data });
+      return { ok: false, data, error: data.error };
+    }
+  })().catch((error) => ({ ok: false, error: error.message })).finally(() => { invitationSync = null; });
+  return invitationSync;
+}
 
 function mergeScoreCache(updates) {
   const safeUpdates = updates && typeof updates === "object" ? updates : {};

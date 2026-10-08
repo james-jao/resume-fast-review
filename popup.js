@@ -3,6 +3,11 @@ const apiKeyInput = document.querySelector("#api-key");
 const limitInput = document.querySelector("#limit");
 const startButton = document.querySelector("#start");
 const status = document.querySelector("#status");
+const syncButton = document.querySelector("#sync-invitations");
+const invitationStatus = document.querySelector("#invitation-status");
+document.querySelector("#invitation-source").href = Invitations.SHEET_URL;
+syncButton.addEventListener("click", () => refreshInvitations(true));
+refreshInvitations(false);
 
 restore();
 startButton.addEventListener("click", startScoring);
@@ -43,4 +48,22 @@ async function startScoring() {
 function setStatus(message, isError = false) {
   status.textContent = message;
   status.classList.toggle("is-error", isError);
+}
+
+async function refreshInvitations(force) {
+  syncButton.disabled = true;
+  invitationStatus.textContent = "正在同步邀約表…";
+  invitationStatus.classList.remove("is-error");
+  try {
+    const result = await chrome.runtime.sendMessage({ type: "SYNC_INVITATIONS", force });
+    const data = result?.data;
+    const timestamp = data?.syncedAt ? new Date(data.syncedAt).toLocaleString("zh-TW") : "尚未同步成功";
+    if (!result?.ok) throw new Error(`${result?.error || "無法同步"} ${data?.syncedAt ? `保留上次資料（${timestamp}）。` : ""}`);
+    invitationStatus.textContent = `${data.records.length} 筆紀錄 · 同步於 ${timestamp}`;
+  } catch (error) {
+    invitationStatus.textContent = error.message;
+    invitationStatus.classList.add("is-error");
+  } finally {
+    syncButton.disabled = false;
+  }
 }

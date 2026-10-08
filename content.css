@@ -62,3 +62,35 @@
 .fast-review-detail-score.is-high { border-color: #087f5b; }
 .fast-review-detail-score.is-mid { border-color: #d97706; }
 .fast-review-detail-score.is-low { border-color: #c92a2a; }
+
+.fast-review-invitation,
+.fast-review-detail-invitation {
+  display: block;
+  box-sizing: border-box;
+  margin: 8px 0;
+  padding: 8px 12px;
+  border: 1px solid #0e7490;
+  border-radius: 8px;
+  color: #155e75;
+  background: #ecfeff;
+  font: 600 13px/1.5 system-ui, sans-serif;
+  text-decoration: none;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.fast-review-invitation:hover,
+.fast-review-detail-invitation:hover { text-decoration: underline; }
+.fast-review-invitation.is-uncertain,
+.fast-review-detail-invitation.is-uncertain { color: #92400e; border-color: #d97706; background: #fffbeb; }
+.fast-review-invitation.is-stale,
+.fast-review-detail-invitation.is-stale { border-style: dashed; }
+.fast-review-detail-invitation {
+  position: fixed;
+  z-index: 2147483000;
+  right: 20px;
+  top: 100px;
+  max-width: 360px;
+  max-height: 35vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 18px rgb(0 0 0 / 15%);
+}

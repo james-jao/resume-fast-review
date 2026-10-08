@@ -15,6 +15,14 @@
       <label for="limit">本次新增評估人數</label>
       <input id="limit" type="number" min="1" max="50" value="20">
 
+      <details open>
+        <summary>邀約紀錄</summary>
+        <p>自動比對「約邀紀錄」的人選姓名，標示邀約狀況與面試結果。</p>
+        <button id="sync-invitations" type="button">立即同步邀約表</button>
+        <p id="invitation-status" role="status"></p>
+        <a id="invitation-source" target="_blank" rel="noopener noreferrer">開啟原始邀約表</a>
+      </details>
+
       <details>
         <summary>TypeSafe API 設定</summary>
         <label for="api-key">API key</label>
@@ -26,6 +34,7 @@
       <p>已評估的人才會自動略過；往下捲載入更多人才後，可再次按下按鈕接續評估。</p>
       <p id="status" role="status"></p>
     </main>
+    <script src="invitations.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>

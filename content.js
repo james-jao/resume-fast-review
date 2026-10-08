@@ -2,6 +2,7 @@
   "use strict";
 
   const state = { running: false, stopRequested: false, scoreCache: {}, target: "", refreshTimer: null };
+  state.invitations = { records: [] };
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.type === "START_SCORING") {
@@ -216,7 +217,66 @@
     state.refreshTimer = setTimeout(() => {
       clearStaleBadges();
       applyCachedScoresToList();
+      applyInvitations();
     }, 120);
+  }
+
+  function candidateNameFromCard(card) {
+    const link = card.querySelector('[data-qa-id="cardBasicData"] a.name[href*="SearchResumeMaster"]');
+    return link && FastReview.isCandidateProfileUrl(link.href) ? link.textContent.trim() : "";
+  }
+
+  function renderInvitation(container, name, detail = false) {
+    const match = Invitations.matchName(name, state.invitations.records);
+    const className = detail ? "fast-review-detail-invitation" : "fast-review-invitation";
+    let badge = container.querySelector(`:scope > .${className}`);
+    if (!match.records.length) { badge?.remove(); return; }
+    const stale = Boolean(state.invitations.error) || Date.now() - state.invitations.syncedAt > Invitations.MAX_AGE_MS;
+    const signature = JSON.stringify([name, match, state.invitations.syncedAt, stale]);
+    if (badge?.dataset.signature === signature) return;
+    if (!badge) {
+      badge = document.createElement("a");
+      badge.className = className;
+      badge.target = "_blank";
+      badge.rel = "noopener noreferrer";
+      container.appendChild(badge);
+    }
+    badge.dataset.signature = signature;
+    badge.classList.toggle("is-uncertain", match.kind === "masked" || match.records.length > 1);
+    badge.classList.toggle("is-stale", stale);
+    const label = match.kind === "masked" ? "疑似邀約紀錄" : "同名邀約紀錄";
+    const statuses = [...new Set(match.records.map(Invitations.recordStatus))].join(" ／ ");
+    badge.textContent = `${label}${match.records.length > 1 ? `（${match.records.length} 筆）` : ""}：${statuses}${stale ? "（舊資料）" : ""}`;
+    badge.href = Invitations.recordLink(match.records[0]);
+    const timestamp = state.invitations.syncedAt ? new Date(state.invitations.syncedAt).toLocaleString("zh-TW") : "未同步";
+    badge.title = [
+      "僅依姓名比對，請確認為同一位人選。點擊開啟邀約表。",
+      ...match.records.map((record) => `第 ${record.row} 列｜${record.name}｜${Invitations.recordStatus(record)}｜發信：${record.invitedAt || "未填"}｜HR更新：${record.updatedAt || "未填"}｜一面：${record.firstDate || "未填"}｜二面：${record.secondDate || "未填"}`),
+      `表格同步：${timestamp}${stale ? "；資料可能已更新，請在擴充功能同步" : ""}`
+    ].join("\n");
+  }
+
+  function applyInvitations() {
+    document.querySelectorAll('[data-qa-id="resumeCard"]').forEach((card) => {
+      const container = card.querySelector('[data-qa-id="cardBasicData"]')?.parentElement;
+      if (container) renderInvitation(container, candidateNameFromCard(card));
+      else card.querySelector(".fast-review-invitation")?.remove();
+    });
+    const id = FastReview.candidateIdFromUrl(location.href);
+    if (!id) {
+      document.querySelector(".fast-review-detail-invitation")?.remove();
+      return;
+    }
+    const nameElement = [...document.querySelectorAll("h2 > p.name")].find((element) => {
+      return element.parentElement.querySelector(".code .copy-content")?.textContent.trim() === id;
+    });
+    renderInvitation(document.body, nameElement?.textContent.trim() || "", true);
+  }
+
+  async function refreshInvitations() {
+    const result = await sendMessage({ type: "SYNC_INVITATIONS" });
+    if (result?.data) state.invitations = result.data;
+    applyInvitations();
   }
 
   function showDetailScore() {
@@ -251,10 +311,17 @@
     const observer = new MutationObserver(scheduleListRefresh);
     observer.observe(document.body, { childList: true, subtree: true });
   });
+  chrome.storage.local.get("fastReviewInvitations").then((saved) => {
+    if (saved.fastReviewInvitations) state.invitations = saved.fastReviewInvitations;
+    applyInvitations();
+    refreshInvitations();
+  });
+  setInterval(refreshInvitations, Invitations.MAX_AGE_MS);
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== "local") return;
     if (changes.fastReviewScores) state.scoreCache = changes.fastReviewScores.newValue || {};
+    if (changes.fastReviewInvitations) state.invitations = changes.fastReviewInvitations.newValue || { records: [] };
     if (changes.talentTarget) state.target = FastReview.compactText(changes.talentTarget.newValue, 4000);
     scheduleListRefresh();
     showDetailScore();
